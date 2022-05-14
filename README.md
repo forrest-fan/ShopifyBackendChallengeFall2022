@@ -9,11 +9,12 @@ This CRUD app represents a logistics systems that can track inventories of certa
 1. The app uses Node.js, so verify that it is installed on your computer with `npm --version` in a terminal. If it isn't installed, install the latest version [here](https://nodejs.org/en/download/).
 2. Clone the project to your local machine with `git clone https://github.com/forrest-fan/ShopifyBackendChallengeFall2022.git`.
 3. Navigate to the root directory of the project, and install all dependencies using `npm install`.
-4. In the same directory, use `npm start` to start the app. The app will run on your localhost at http://localhost:3000/.
+4. In the same directory, use `npm start` to start the app. The app will run on your localhost at http://localhost:3000/. All API requests can be made to this localhost URL as the root.
 
 ### 1.2 Access live demo
 
-... type out live demo at Replit here ...
+1. The Replit deployment can be accessed [here](https://replit.com/@forrestfan/ShopifyBackendChallengeFall2022#).
+2. Run the application on Replit, and it will run at https://ShopifyBackendChallengeFall2022.forrestfan.repl.co. All API requests can be made to this public URL as the root.
 
 ### 1.3 Making API requests
 
