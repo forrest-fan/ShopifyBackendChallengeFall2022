@@ -309,7 +309,7 @@ app.post("/submit-order", jsonParser, (req, res) => {
                 let productData = await products.find({
                     _id: ObjectId(productID)
                 });
-                let productsArr = productData.toArray();
+                let productsArr = await productData.toArray();
                 if (productsArr.length === 0) {
                     // Product ID not found
                     unfulfilled.push(productID);
