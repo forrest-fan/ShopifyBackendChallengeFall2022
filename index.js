@@ -285,6 +285,9 @@ app.post("/submit-order", jsonParser, (req, res) => {
                 if (typeof(req.body.orderDetails[productID]) !== "number") {
                     // Throw error if quantity values are not numbers
                     throw new Error("The quantity provided for " + productID + " must be a number.");
+                } else if (req.body.orderDetails[productID] <= 0) {
+                    // Throw error if quantity values are 0 or negative
+                    throw new Error("The quantity provided for " + productID + " must be positive.");
                 }
             });
 
