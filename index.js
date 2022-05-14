@@ -69,6 +69,12 @@ app.get('/find-product', (req, res) => {
     });
 });
 
+/**
+ * Create operation
+ * Accessed with /add-products
+ * Takes a JSON body and reads name, description, price, and inventory properties. Name and price are mandatory.
+ * Returns a JSON object with the product ID of the newly added product.
+ */
 app.post("/add-product", jsonParser, (req, res) => {
     mongoClient.connect(async err => {
         try {
@@ -109,15 +115,85 @@ app.post("/add-product", jsonParser, (req, res) => {
             };
 
             // Add the product to mongoDB
-            let mongoResponse = await products.insertOne(newProduct);
+            let createResponse = await products.insertOne(newProduct);
 
             // Send success response including the auto-generated ID of the new product
             res.send({
                 status: "SUCCESS",
                 data: {
-                    productID: mongoResponse.insertedId
+                    productID: createResponse.insertedId
                 }
             });         
+        } catch (error) {
+            // Send error message in case of an error
+            res.send({
+                status: "ERROR",
+                data: {
+                    message: error.toString()
+                }
+            });
+        }
+    });
+});
+
+const editParamTypes = {
+    name: "string",
+    description: "string",
+    price: "number",
+}
+
+/**
+ * Update operation
+ * Accessed with /edit-products
+ * Request body must contain the product ID of the product to update, and can include name, description, and price updates. Inventory updates should be done through the order request.
+ * A successful response will only contain a status of SUCCESS, with no additional data.
+ */
+app.post("/edit-product", jsonParser, (req, res) => {
+    mongoClient.connect(async err => {
+        try {
+            if (err !== undefined) {
+                // Throw error if database connection fails
+                throw new Error("Error connecting to the database.");
+            }
+
+            // Get products collection
+            const products = await mongoClient.db("ShopifyBackendChallengeDb").collection("products");
+            // Error handling: check mandatory params and check request data types
+            if (!("productID" in req.body)) {
+                // Throw error if missing productID property in request
+                throw new Error("Please specify the product ID of the product you want to edit.");
+            }
+            Object.keys(editParamTypes).forEach(param => {
+                if (param in req.body && typeof(req.body[param]) !== editParamTypes[param]) {
+                    // Throw error if property in request is not expected data type
+                    throw new Error("The product's " + param + " must be a " + editParamTypes[param] + ".");
+                }
+            });
+
+            // Create objects for updating document
+            let updateFilter = {
+                _id: ObjectId(req.body.productID)
+            };
+            let updateObj = {
+                $set: {}
+            }
+            Object.keys(editParamTypes).forEach(param => {
+                if (param in req.body) {
+                    updateObj.$set[param] = req.body[param];
+                }
+            });
+
+            let updateResponse = await products.updateOne(updateFilter, updateObj);
+            if (updateResponse.modifiedCount > 0) {
+                // Return success response if modified product
+                res.send({
+                    status: "SUCCESS",
+                    data: {}
+                });
+            } else {
+                // Return error response if product could not be found
+                throw new Error("Could not find product with product ID " + req.body.productID);
+            }
         } catch (error) {
             // Send error message in case of an error
             res.send({
