@@ -206,6 +206,53 @@ app.post("/edit-product", jsonParser, (req, res) => {
     });
 });
 
+/**
+ * Delete operation
+ * Accessed at /remove-product
+ * The request body should contain the product ID of the product to delete
+ * A successful deletion will return an object with status of SUCCESS.
+ */
+app.post("/remove-product", jsonParser, (req, res) => {
+    mongoClient.connect(async err => {
+        try {
+            if (err !== undefined) {
+                // Throw error if database connection fails
+                throw new Error("Error connecting to the database.");
+            }
+
+            // Get products collection
+            const products = await mongoClient.db("ShopifyBackendChallengeDb").collection("products");
+            // Error handling: check mandatory params and check request data types
+            if (!("productID" in req.body)) {
+                // Throw error if missing productID property in request
+                throw new Error("Please specify the product ID of the product you want to edit.");
+            }
+
+            let deleteResponse = await products.deleteOne({
+                _id: ObjectId(req.body.productID)
+            });
+            if (deleteResponse.deletedCount > 0) {
+                // Return success response if deleted product
+                res.send({
+                    status: "SUCCESS",
+                    data: {}
+                });
+            } else {
+                // Return error response if product could not be found
+                throw new Error("Could not find product with product ID " + req.body.productID);
+            }
+        } catch (error) {
+            // Send error message in case of an error
+            res.send({
+                status: "ERROR",
+                data: {
+                    message: error.toString()
+                }
+            });
+        }
+    });
+})
+
 app.listen(port, () => {
     console.log("Listening on port " + port);
 });
