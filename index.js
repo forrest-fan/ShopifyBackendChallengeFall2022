@@ -3,12 +3,20 @@ const express = require("express");
 const app = express();
 const port = 3000;
 
+// CORS setup
+const cors = require("cors");
+app.use(cors());
+
 const bodyParser = require("body-parser");
 var jsonParser = bodyParser.json();
 
 // Mongo dependencies
 const mongoClient = require("./mongo-client");
 const ObjectId = require("mongodb").ObjectId;
+
+app.get("/", (req, res) => {
+    res.send("Please refer to the README.md to make API requests.");
+});
 
 /*
  * Read operation
