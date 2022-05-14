@@ -3,6 +3,10 @@ const express = require("express");
 const app = express();
 const port = 3000;
 
+// CORS setup
+const cors = require("cors");
+app.use(cors());
+
 const bodyParser = require("body-parser");
 var jsonParser = bodyParser.json();
 
