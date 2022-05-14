@@ -298,7 +298,7 @@ app.post("/submit-order", jsonParser, (req, res) => {
             // Generate order object
             let orderObj = {
                 isOutgoing: req.body.isOutgoing,
-                orderDetails: [],
+                orderDetails: {},
                 datetime: new Date()
             };
 
@@ -321,7 +321,7 @@ app.post("/submit-order", jsonParser, (req, res) => {
 
                 let inventoryChangeObj = {};
                 let fulfillmentType = "";
-                let fulfillmentInfo = {};
+                let fulfillmentAmt = 0;
                 if (req.body.isOutgoing) {
                     if (productsArr[0].inventory === 0) {
                         // Cannot fulfill order, product out of stock
@@ -333,14 +333,14 @@ app.post("/submit-order", jsonParser, (req, res) => {
                             inventory: 0
                         };
                         fulfillmentType = "PARTIAL";
-                        fulfillmentInfo[productID] = productsArr[0].inventory;
+                        fulfillmentAmt = productsArr[0].inventory;
                     } else {
                         // Fulfill entire order, decrement inventory
                         inventoryChangeObj.$inc = {
                             inventory: -1 * req.body.orderDetails[productID]
                         };
                         fulfillmentType = "FULFILLED";
-                        fulfillmentInfo[productID] = req.body.orderDetails[productID];
+                        fulfillmentAmt = req.body.orderDetails[productID];
                     }
                 } else {
                     // Incoming order, always fulfillable
@@ -348,7 +348,7 @@ app.post("/submit-order", jsonParser, (req, res) => {
                         inventory: req.body.orderDetails[productID]
                     };
                     fulfillmentType = "FULFILLED";
-                    fulfillmentInfo[productID] = req.body.orderDetails[productID];
+                    fulfillmentAmt = req.body.orderDetails[productID];
                 }
                 let updateResponse = await products.updateOne({
                     _id: ObjectId(productID)
@@ -358,11 +358,11 @@ app.post("/submit-order", jsonParser, (req, res) => {
                     switch (fulfillmentType) {
                         case "PARTIAL":
                             partial.push(productID);
-                            orderObj.orderDetails.push(fulfillmentInfo);
+                            orderObj.orderDetails[productID] = fulfillmentAmt;
                             break;
                         case "FULFILLED":
                             fulfilled.push(productID);
-                            orderObj.orderDetails.push(fulfillmentInfo);
+                            orderObj.orderDetails[productID] = fulfillmentAmt;
                             break;
                         default:
                             unfulfilled.push(productID);
