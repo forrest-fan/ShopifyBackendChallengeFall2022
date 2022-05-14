@@ -253,6 +253,152 @@ app.post("/remove-product", jsonParser, (req, res) => {
     });
 });
 
+/**
+ * Request to place orders, which updates product inventory
+ * Accessed at /submit-order
+ * Input requires a boolean to determine whether the order is outgoing or incoming, and an object orderDetails that specifies the product IDs in the order and the quantities of each product
+ * Output will consist of
+ *      - The order ID
+ *      - The final order details (since not all order requests may be fulfilled)
+ *      - Arrays to indicate which orders were fully fulfilled, partially fulfilled, and not fulfilled
+ */
+app.post("/submit-order", jsonParser, (req, res) => {
+    mongoClient.connect(async err => {
+        try {
+            if (err !== undefined) {
+                // Throw error if database connection fails
+                throw new Error("Error connecting to the database.");
+            }
+
+            if (!("isOutgoing" in req.body)) {
+                // Throw error if no isOutgoing property
+                throw new Error("Please specify whether this order is outgoing or incoming using the isOutgoing property, which takes a boolean value.");
+            } else if (typeof(req.body.isOutgoing) !== "boolean") {
+                // Throw error if isOutgoing property is not a boolean value
+                throw new Error("The isOutgoing property takes a boolean value. True for outgoing order and false for incoming order.");
+            } else if (!("orderDetails" in req.body)) {
+                // Throw error if no orderDetails property
+                throw new Error("Please provide the order details in the orderDetails property. The value should be an object with the productID as the key and the quantity ordered as the value.");
+            }
+            
+            Object.keys(req.body.orderDetails).forEach(productID => {
+                if (typeof(req.body.orderDetails[productID]) !== "number") {
+                    // Throw error if quantity values are not numbers
+                    throw new Error("The quantity provided for " + productID + " must be a number.");
+                }
+            });
+
+            // Get collections
+            const products = await mongoClient.db("ShopifyBackendChallengeDb").collection("products");
+            const orders = await mongoClient.db("ShopifyBackendChallengeDb").collection("orders");
+
+            // Generate order object
+            let orderObj = {
+                isOutgoing: req.body.isOutgoing,
+                orderDetails: [],
+                datetime: new Date()
+            };
+
+            let fulfilled = [];
+            let partial = [];
+            let unfulfilled = [];
+
+            // Update inventories and add to orderObj if successful
+            let productIDs = Object.keys(req.body.orderDetails);
+            for (const productID of productIDs) {
+                let productData = await products.find({
+                    _id: ObjectId(productID)
+                });
+                let productsArr = productData.toArray();
+                if (productsArr.length === 0) {
+                    // Product ID not found
+                    unfulfilled.push(productID);
+                    continue;
+                }
+
+                let inventoryChangeObj = {};
+                let fulfillmentType = "";
+                let fulfillmentInfo = {};
+                if (req.body.isOutgoing) {
+                    if (productsArr[0].inventory === 0) {
+                        // Cannot fulfill order, product out of stock
+                        unfulfilled.push(productID);
+                        continue;
+                    } else if (productsArr[0].inventory < req.body.orderDetails[productID]) {
+                        // Partially fulfill the order, cannot have negative inventory
+                        inventoryChangeObj.$set = {
+                            inventory: 0
+                        };
+                        fulfillmentType = "PARTIAL";
+                        fulfillmentInfo[productID] = productsArr[0].inventory;
+                    } else {
+                        // Fulfill entire order, decrement inventory
+                        inventoryChangeObj.$inc = {
+                            inventory: -1 * req.body.orderDetails[productID]
+                        };
+                        fulfillmentType = "FULFILLED";
+                        fulfillmentInfo[productID] = req.body.orderDetails[productID];
+                    }
+                } else {
+                    // Incoming order, always fulfillable
+                    inventoryChangeObj.$inc = {
+                        inventory: req.body.orderDetails[productID]
+                    };
+                    fulfillmentType = "FULFILLED";
+                    fulfillmentInfo[productID] = req.body.orderDetails[productID];
+                }
+                let updateResponse = await products.updateOne({
+                    _id: ObjectId(productID)
+                }, inventoryChangeObj);
+                if (updateResponse.modifiedCount > 0) {
+                    // If updated inventory, add to status logger and update order object with final order details
+                    switch (fulfillmentType) {
+                        case "PARTIAL":
+                            partial.push(productID);
+                            orderObj.orderDetails.push(fulfillmentInfo);
+                            break;
+                        case "FULFILLED":
+                            fulfilled.push(productID);
+                            orderObj.orderDetails.push(fulfillmentInfo);
+                            break;
+                        default:
+                            unfulfilled.push(productID);
+                    }
+                } else {
+                    unfulfilled.push(productID);
+                }
+            };
+
+            if (unfulfilled.length === productIDs.length) {
+                // If all orders were unfulfilled, throw an error.
+                throw new Error("No orders were fulfilled. Either the products could not be found or they were out of stock.");
+            }
+
+            let orderResponse = await orders.insertOne(orderObj);
+            let orderID = orderResponse.insertedId;
+
+            res.send({
+                status: "SUCCESS",
+                data: {
+                    orderID: orderID,
+                    orderDetails: orderObj,
+                    fulfilled: fulfilled,
+                    partial: partial,
+                    unfulfilled: unfulfilled
+                }
+            });
+        } catch (error) {
+            // Send error message in case of an error
+            res.send({
+                status: "ERROR",
+                data: {
+                    message: error.toString()
+                }
+            });
+        }
+    });
+})
+
 app.listen(port, () => {
     console.log("Listening on port " + port);
 });
