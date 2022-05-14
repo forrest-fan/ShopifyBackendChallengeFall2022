@@ -10,6 +10,10 @@ var jsonParser = bodyParser.json();
 const mongoClient = require("./mongo-client");
 const ObjectId = require("mongodb").ObjectId;
 
+app.get("/", (req, res) => {
+    res.send("Please refer to the README.md to make API requests.");
+});
+
 /*
  * Read operation
  * Accessed with /find-product?productID={requested product ID}&name={requested product name}
